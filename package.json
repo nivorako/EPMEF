@@ -9,7 +9,12 @@
         "lint": "eslint"
     },
     "dependencies": {
-        "next": "16.1.6",
+        "@payloadcms/db-mongodb": "^3.80.0",
+        "@payloadcms/next": "^3.80.0",
+        "@payloadcms/richtext-lexical": "^3.80.0",
+        "graphql": "^16.13.2",
+        "next": "15.4.11",
+        "payload": "^3.80.0",
         "react": "19.2.3",
         "react-dom": "19.2.3",
         "styled-components": "^6.1.19"
