@@ -1,37 +1,42 @@
-"use client";
+import configPromise from "@payload-config";
+import { getPayload } from "payload";
 
-import styled from "styled-components";
+export default async function Home() {
+    const payload = await getPayload({
+        config: configPromise,
+    });
 
-const Page = styled.div`
-    display: flex;
-    min-height: 100vh;
-    align-items: center;
-    justify-content: center;
-    background-color: ${({ theme }) => theme.colors.backgroundAlt};
-`;
+    type FindArgs = Parameters<typeof payload.find>[0];
+    type CollectionSlug = FindArgs["collection"];
 
-const Main = styled.main`
-    display: flex;
-    min-height: 100vh;
-    width: 100%;
-    max-width: 800px;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: space-between;
-    background-color: ${({ theme }) => theme.colors.surface};
-    padding: 120px 60px;
+    const result = await payload.find({
+        collection: "pages" as unknown as CollectionSlug,
+        limit: 1,
+        where: {
+            slug: {
+                equals: "home",
+            },
+        },
+    });
 
-    @media (max-width: 600px) {
-        padding: 48px 24px;
-    }
-`;
+    const page = result.docs?.[0] as
+        | {
+              title?: string;
+              contentHTML?: string;
+          }
+        | undefined;
 
-export default function Home() {
     return (
-        <Page>
-            <Main>
-                <h1>Faly miarahaba antsika rehetra !!!</h1>
-            </Main>
-        </Page>
+        <main style={{ padding: 24 }}>
+            <h1>{page?.title || "Accueil"}</h1>
+            {page?.contentHTML ? (
+                <div dangerouslySetInnerHTML={{ __html: page.contentHTML }} />
+            ) : (
+                <p>
+                    Crée une page dans Payload (collection Pages) avec le slug{" "}
+                    <code>home</code>.
+                </p>
+            )}
+        </main>
     );
 }
