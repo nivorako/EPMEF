@@ -18,9 +18,10 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
     // --- Params ---
     const { slug } = await props.params;
+    const normalizedSlug = slug.toLowerCase();
 
     // --- Special-case: home ---
-    if (slug === "home") {
+    if (normalizedSlug === "home") {
         return {
             title: "Accueil",
         };
@@ -39,7 +40,7 @@ export async function generateMetadata(props: {
         depth: 0,
         where: {
             slug: {
-                equals: slug,
+                equals: normalizedSlug,
             },
         },
     });
@@ -58,7 +59,7 @@ export async function generateMetadata(props: {
     }
 
     return {
-        title: page.title || slug,
+        title: page.title || normalizedSlug,
     };
 }
 
@@ -67,10 +68,16 @@ export default async function PageBySlug(props: {
 }) {
     // --- Params ---
     const { slug } = await props.params;
+    const normalizedSlug = slug.toLowerCase();
 
     // --- Special-case: home ---
-    if (slug === "home") {
+    if (normalizedSlug === "home") {
         redirect("/");
+    }
+
+    // Canonicalize casing to avoid 404s when users type uppercase URLs.
+    if (slug !== normalizedSlug) {
+        redirect(`/${normalizedSlug}`);
     }
 
     // --- Init (Payload) ---
@@ -85,7 +92,7 @@ export default async function PageBySlug(props: {
         limit: 1,
         where: {
             slug: {
-                equals: slug,
+                equals: normalizedSlug,
             },
         },
     });
@@ -105,7 +112,7 @@ export default async function PageBySlug(props: {
     // --- Render ---
     return (
         <main style={{ padding: 24 }}>
-            <h1>{page.title || slug}</h1>
+            <h1>{page.title || normalizedSlug}</h1>
             {page.contentHTML ? (
                 <div dangerouslySetInnerHTML={{ __html: page.contentHTML }} />
             ) : null}
