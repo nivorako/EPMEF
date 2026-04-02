@@ -1,13 +1,21 @@
-import type { MetadataRoute } from 'next'
+import type { MetadataRoute } from "next";
+
+// Robots.txt generation for Next.js metadata routes.
+//
+// Notes:
+// - Uses `NEXT_PUBLIC_SITE_URL` as the canonical base URL for the sitemap link.
+// - The current policy allows all user agents to crawl all routes.
 
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    // --- Config ---
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-  return {
-    rules: {
-      userAgent: '*',
-      allow: '/',
-    },
-    sitemap: `${siteUrl}/sitemap.xml`,
-  }
+    // --- Output ---
+    return {
+        rules: {
+            userAgent: "*",
+            disallow: "/",
+        },
+        sitemap: `${siteUrl}/sitemap.xml`,
+    };
 }

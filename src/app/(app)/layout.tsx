@@ -2,6 +2,13 @@ import type { Metadata } from "next";
 import Providers from "./providers";
 import StyledComponentsRegistry from "./styled-components-registry";
 
+// Root layout for the public application routes.
+//
+// Responsibilities:
+// - Define default SEO metadata for the app segment.
+// - Wrap the entire React tree with global providers (theme, global styles, etc.).
+// - Ensure styled-components styles are correctly collected during SSR.
+
 export const metadata: Metadata = {
     title: "EPMEF",
     description:

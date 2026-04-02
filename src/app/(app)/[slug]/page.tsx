@@ -3,24 +3,36 @@ import { getPayload } from "payload";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
+// Dynamic page route: `/<slug>`.
+//
+// Behavior:
+// - Uses Payload CMS (collection `pages`) as the source of truth.
+// - Special-cases `home` to avoid duplicate content (redirects to `/`).
+// - `generateMetadata` queries Payload to populate the HTML `<title>`.
+// - If a slug does not exist, we return a 404 via `notFound()`.
+
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(props: {
     params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+    // --- Params ---
     const { slug } = await props.params;
 
+    // --- Special-case: home ---
     if (slug === "home") {
         return {
             title: "Accueil",
         };
     }
 
+    // --- Init (Payload) ---
     const payload = await getPayload({ config: configPromise });
 
     type FindArgs = Parameters<typeof payload.find>[0];
     type CollectionSlug = FindArgs["collection"];
 
+    // --- Query (Pages: by slug) ---
     const result = await payload.find({
         collection: "pages" as unknown as CollectionSlug,
         limit: 1,
@@ -38,6 +50,7 @@ export async function generateMetadata(props: {
           }
         | undefined;
 
+    // --- Fallback metadata ---
     if (!page) {
         return {
             title: "Page introuvable",
@@ -52,17 +65,21 @@ export async function generateMetadata(props: {
 export default async function PageBySlug(props: {
     params: Promise<{ slug: string }>;
 }) {
+    // --- Params ---
     const { slug } = await props.params;
 
+    // --- Special-case: home ---
     if (slug === "home") {
         redirect("/");
     }
 
+    // --- Init (Payload) ---
     const payload = await getPayload({ config: configPromise });
 
     type FindArgs = Parameters<typeof payload.find>[0];
     type CollectionSlug = FindArgs["collection"];
 
+    // --- Query (Pages: by slug) ---
     const result = await payload.find({
         collection: "pages" as unknown as CollectionSlug,
         limit: 1,
@@ -80,10 +97,12 @@ export default async function PageBySlug(props: {
           }
         | undefined;
 
+    // --- 404 ---
     if (!page) {
         notFound();
     }
 
+    // --- Render ---
     return (
         <main style={{ padding: 24 }}>
             <h1>{page.title || slug}</h1>

@@ -1,5 +1,13 @@
 import type { CollectionConfig } from "payload";
 
+// Collection: Pages
+//
+// Used for site pages rendered by Next.js ("home" and `/<slug>`).
+// Notes:
+// - `slug` is unique and used for routing.
+// - The front-end currently renders `contentHTML` directly for quick output.
+//   `content` (richText) can be used for a safer/structured renderer later.
+
 export const Pages: CollectionConfig = {
     slug: "pages",
     admin: {
@@ -9,6 +17,13 @@ export const Pages: CollectionConfig = {
         read: () => true,
     },
     fields: [
+        {
+            name: "wpId",
+            type: "number",
+            unique: true,
+            index: true,
+            required: false,
+        },
         {
             name: "title",
             type: "text",

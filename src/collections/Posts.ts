@@ -1,5 +1,13 @@
 import type { CollectionConfig } from "payload";
 
+// Collection: Posts
+//
+// Used for news/articles pages, exposed on the front-end under `/actualites/<slug>`
+// (see sitemap generation).
+// Notes:
+// - `publishedAt` can be used to control ordering and last-modified fallback.
+// - As with Pages, `contentHTML` is currently the simplest rendering path.
+
 export const Posts: CollectionConfig = {
     slug: "posts",
     admin: {
@@ -9,6 +17,13 @@ export const Posts: CollectionConfig = {
         read: () => true,
     },
     fields: [
+        {
+            name: "wpId",
+            type: "number",
+            unique: true,
+            index: true,
+            required: false,
+        },
         {
             name: "title",
             type: "text",
