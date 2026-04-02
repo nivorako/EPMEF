@@ -67,6 +67,9 @@ export async function POST(req: Request) {
         importPages?: boolean;
         importPosts?: boolean;
         dryRun?: boolean;
+        debugSchema?: boolean;
+        onlySlug?: string;
+        maxItems?: number;
     };
 
     const wpBaseUrl = body.wpBaseUrl || process.env.WP_BASE_URL || "";
@@ -80,8 +83,41 @@ export async function POST(req: Request) {
     const importPages = body.importPages ?? true;
     const importPosts = body.importPosts ?? true;
     const dryRun = body.dryRun ?? false;
+    const debugSchema = body.debugSchema ?? false;
+    const onlySlug = body.onlySlug || "";
+    const maxItems = typeof body.maxItems === "number" ? body.maxItems : 0;
 
     const payload = await getPayload({ config: configPromise });
+
+    if (debugSchema) {
+        const cfg = (payload as unknown as { config?: unknown }).config as
+            | {
+                  collections?: Array<{
+                      slug?: string;
+                      fields?: Array<{ name?: string }>;
+                  }>;
+              }
+            | undefined;
+
+        const pagesFields =
+            cfg?.collections
+                ?.find((c) => c.slug === "pages")
+                ?.fields?.map((f) => f.name)
+                .filter(Boolean) || [];
+        const postsFields =
+            cfg?.collections
+                ?.find((c) => c.slug === "posts")
+                ?.fields?.map((f) => f.name)
+                .filter(Boolean) || [];
+
+        return Response.json({
+            ok: true,
+            debugSchema: {
+                pagesFields,
+                postsFields,
+            },
+        });
+    }
 
     type UntypedPayload = {
         find: (options: unknown) => Promise<unknown>;
@@ -141,8 +177,39 @@ export async function POST(req: Request) {
         message: string;
     }[] = [];
 
+    const formatError = (e: unknown) => {
+        if (e instanceof Error) {
+            const anyErr = e as unknown as {
+                name?: string;
+                message?: string;
+                stack?: string;
+                data?: unknown;
+                errors?: unknown;
+            };
+
+            const details = anyErr.data ?? anyErr.errors;
+            if (details) {
+                try {
+                    return `${anyErr.message || "Error"} | details=${JSON.stringify(details)}`;
+                } catch {
+                    return `${anyErr.message || "Error"} | details=[unserializable]`;
+                }
+            }
+
+            return anyErr.message || "Error";
+        }
+
+        try {
+            return JSON.stringify(e);
+        } catch {
+            return String(e);
+        }
+    };
+
     if (importPages) {
-        const wpPages = await fetchWPEndpoint<WPPost>(wpBaseUrl, "pages");
+        let wpPages = await fetchWPEndpoint<WPPost>(wpBaseUrl, "pages");
+        if (onlySlug) wpPages = wpPages.filter((p) => p.slug === onlySlug);
+        if (maxItems > 0) wpPages = wpPages.slice(0, maxItems);
 
         let created = 0;
         let updated = 0;
@@ -197,7 +264,7 @@ export async function POST(req: Request) {
                     collection: "pages",
                     wpId: wp.id,
                     slug: wp.slug,
-                    message: e instanceof Error ? e.message : String(e),
+                    message: formatError(e),
                 });
             }
         }
@@ -206,7 +273,9 @@ export async function POST(req: Request) {
     }
 
     if (importPosts) {
-        const wpPosts = await fetchWPEndpoint<WPPost>(wpBaseUrl, "posts");
+        let wpPosts = await fetchWPEndpoint<WPPost>(wpBaseUrl, "posts");
+        if (onlySlug) wpPosts = wpPosts.filter((p) => p.slug === onlySlug);
+        if (maxItems > 0) wpPosts = wpPosts.slice(0, maxItems);
 
         let created = 0;
         let updated = 0;
@@ -267,7 +336,7 @@ export async function POST(req: Request) {
                     collection: "posts",
                     wpId: wp.id,
                     slug: wp.slug,
-                    message: e instanceof Error ? e.message : String(e),
+                    message: formatError(e),
                 });
             }
         }

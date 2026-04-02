@@ -44,6 +44,7 @@ export const Posts: CollectionConfig = {
         {
             name: "contentHTML",
             type: "textarea",
+            maxLength: 200000,
             required: false,
         },
         {
