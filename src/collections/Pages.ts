@@ -37,6 +37,12 @@ export const Pages: CollectionConfig = {
             index: true,
         },
         {
+            name: "featuredImage",
+            type: "relationship",
+            relationTo: "media",
+            required: false,
+        },
+        {
             name: "contentHTML",
             type: "textarea",
             maxLength: 200000,

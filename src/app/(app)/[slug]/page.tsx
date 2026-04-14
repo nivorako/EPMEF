@@ -90,6 +90,7 @@ export default async function PageBySlug(props: {
     const result = await payload.find({
         collection: "pages" as unknown as CollectionSlug,
         limit: 1,
+        depth: 1,
         where: {
             slug: {
                 equals: normalizedSlug,
@@ -101,6 +102,10 @@ export default async function PageBySlug(props: {
         | {
               title?: string;
               contentHTML?: string;
+              featuredImage?: {
+                  url?: string;
+                  alt?: string;
+              };
           }
         | undefined;
 
@@ -113,6 +118,13 @@ export default async function PageBySlug(props: {
     return (
         <main style={{ padding: 24 }}>
             <h1>{page.title || normalizedSlug}</h1>
+            {page.featuredImage?.url ? (
+                <img
+                    src={page.featuredImage.url}
+                    alt={page.featuredImage.alt || ""}
+                    style={{ maxWidth: "100%", height: "auto" }}
+                />
+            ) : null}
             {page.contentHTML ? (
                 <div dangerouslySetInnerHTML={{ __html: page.contentHTML }} />
             ) : null}

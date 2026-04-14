@@ -8,6 +8,14 @@ type WPPost = {
     content?: { rendered?: string };
     modified_gmt?: string;
     date_gmt?: string;
+    featured_media?: number;
+};
+
+type WPMedia = {
+    id: number;
+    source_url?: string;
+    alt_text?: string;
+    title?: { rendered?: string };
 };
 
 async function fetchWPEndpoint<T>(
@@ -48,6 +56,25 @@ async function fetchWPEndpoint<T>(
     return out;
 }
 
+async function fetchWPItem<T>(baseUrl: string, endpoint: string): Promise<T> {
+    const url = new URL(`/wp-json/wp/v2/${endpoint}`, baseUrl);
+    const res = await fetch(url.toString(), {
+        headers: {
+            Accept: "application/json",
+        },
+        cache: "no-store",
+    });
+
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(
+            `WP fetch failed: ${endpoint} status=${res.status} body=${text}`,
+        );
+    }
+
+    return (await res.json()) as T;
+}
+
 export async function POST(req: Request) {
     const importSecret = process.env.IMPORT_SECRET || "";
     if (!importSecret) {
@@ -66,6 +93,8 @@ export async function POST(req: Request) {
         wpBaseUrl?: string;
         importPages?: boolean;
         importPosts?: boolean;
+        importMedia?: boolean;
+        replaceMediaURLs?: boolean;
         dryRun?: boolean;
         debugSchema?: boolean;
         onlySlug?: string;
@@ -82,6 +111,8 @@ export async function POST(req: Request) {
 
     const importPages = body.importPages ?? true;
     const importPosts = body.importPosts ?? true;
+    const importMedia = body.importMedia ?? true;
+    const replaceMediaURLs = body.replaceMediaURLs ?? true;
     const dryRun = body.dryRun ?? false;
     const debugSchema = body.debugSchema ?? false;
     const onlySlug = body.onlySlug || "";
@@ -129,6 +160,250 @@ export async function POST(req: Request) {
 
     type ImportCollectionSlug = "pages" | "posts";
 
+    const mediaUrlCache = new Map<string, string>();
+
+    const extractImageURLs = (html: string) => {
+        const urls = new Set<string>();
+        if (!html) return [];
+
+        // src="..." or src='...'
+        const srcRe = /\ssrc=("([^"]+)"|'([^']+)')/gi;
+        let m: RegExpExecArray | null = null;
+        while ((m = srcRe.exec(html))) {
+            const url = (m[2] || m[3] || "").trim();
+            if (url) urls.add(url);
+        }
+
+        // srcset="url 300w, url2 768w"
+        const srcsetRe = /\ssrcset=("([^"]+)"|'([^']+)')/gi;
+        while ((m = srcsetRe.exec(html))) {
+            const raw = (m[2] || m[3] || "").trim();
+            if (!raw) continue;
+            for (const part of raw.split(",")) {
+                const token = part.trim().split(/\s+/)[0];
+                if (token) urls.add(token);
+            }
+        }
+
+        // CSS: url("...") / url('...') / url(...)
+        const cssUrlRe = /url\(\s*(?:"([^"]+)"|'([^']+)'|([^\)\s]+))\s*\)/gi;
+        while ((m = cssUrlRe.exec(html))) {
+            const url = (m[1] || m[2] || m[3] || "").trim();
+            if (url) urls.add(url);
+        }
+
+        return Array.from(urls);
+    };
+
+    const canonicalizeWPAssetURL = (input: string) => {
+        try {
+            const u = new URL(input, wpBaseUrl);
+
+            // Strip query/hash for stable keys.
+            u.search = "";
+            u.hash = "";
+
+            // Only canonicalize uploads on the same WP host.
+            const wpHost = new URL(wpBaseUrl).host;
+            if (u.host !== wpHost) {
+                return { canonical: u.toString(), fetchURL: u.toString() };
+            }
+
+            // Canonicalize common WP variants:
+            // - image-300x200.jpg -> image.jpg
+            // - image-scaled.jpg -> image.jpg
+            const segments = u.pathname.split("/");
+            const filename = segments.pop() || "";
+            const dot = filename.lastIndexOf(".");
+            if (dot > 0) {
+                const base = filename.slice(0, dot);
+                const ext = filename.slice(dot);
+                const baseNoScaled = base.replace(/-scaled$/i, "");
+                const baseNoSize = baseNoScaled.replace(/-\d+x\d+$/i, "");
+                const canonicalFilename = `${baseNoSize}${ext}`;
+                segments.push(canonicalFilename);
+                u.pathname = segments.join("/");
+            }
+
+            const canonical = u.toString();
+
+            // Fetch the originally referenced asset (but without query/hash).
+            const fetch = new URL(input, wpBaseUrl);
+            fetch.search = "";
+            fetch.hash = "";
+
+            return { canonical, fetchURL: fetch.toString() };
+        } catch {
+            return { canonical: input, fetchURL: input };
+        }
+    };
+
+    const downloadAsPayloadUpload = async (sourceURL: string) => {
+        const { fetchURL } = canonicalizeWPAssetURL(sourceURL);
+        const res = await fetch(fetchURL, { cache: "no-store" });
+        if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(
+                `Media download failed: status=${res.status} url=${sourceURL} body=${text}`,
+            );
+        }
+
+        const arrayBuf = await res.arrayBuffer();
+        const data = Buffer.from(arrayBuf);
+        const mimetype =
+            res.headers.get("content-type") || "application/octet-stream";
+        const pathname = new URL(sourceURL).pathname;
+        const name = decodeURIComponent(pathname.split("/").pop() || "file");
+
+        return {
+            data,
+            mimetype,
+            name,
+            size: data.length,
+        };
+    };
+
+    const findExistingMedia = async (args: {
+        wpId?: number;
+        wpSourceURL?: string;
+    }) => {
+        const { wpId, wpSourceURL } = args;
+
+        if (typeof wpId === "number" && Number.isFinite(wpId)) {
+            const byWpId = (await payloadUntyped.find({
+                collection: "media",
+                limit: 1,
+                depth: 0,
+                where: {
+                    wpId: {
+                        equals: wpId,
+                    },
+                },
+            })) as { docs?: Array<{ id: string; url?: string }> };
+
+            const doc = byWpId.docs?.[0];
+            if (doc) return doc;
+        }
+
+        if (wpSourceURL) {
+            const bySource = (await payloadUntyped.find({
+                collection: "media",
+                limit: 1,
+                depth: 0,
+                where: {
+                    wpSourceURL: {
+                        equals: wpSourceURL,
+                    },
+                },
+            })) as { docs?: Array<{ id: string; url?: string }> };
+
+            const doc = bySource.docs?.[0];
+            if (doc) return doc;
+        }
+
+        return undefined;
+    };
+
+    const upsertMediaFromWP = async (args: {
+        wpId?: number;
+        sourceURL: string;
+        alt?: string;
+    }) => {
+        const { canonical, fetchURL } = canonicalizeWPAssetURL(args.sourceURL);
+        if (!canonical) return undefined;
+
+        const cached = mediaUrlCache.get(canonical);
+        if (cached) return { id: "", url: cached };
+
+        const existing = await findExistingMedia({
+            wpId: args.wpId,
+            wpSourceURL: canonical,
+        });
+        if (existing?.url) {
+            mediaUrlCache.set(canonical, existing.url);
+            mediaReused++;
+            return existing;
+        }
+
+        if (!importMedia) return undefined;
+        if (dryRun) return { id: "", url: canonical };
+
+        const upload = await downloadAsPayloadUpload(fetchURL);
+        const alt = (args.alt || "").trim() || "Image";
+
+        const created = (await payloadUntyped.create({
+            collection: "media",
+            data: {
+                alt,
+                wpId: args.wpId,
+                wpSourceURL: canonical,
+            },
+            file: upload,
+        })) as { id: string; url?: string };
+
+        mediaCreated++;
+
+        if (created?.url) {
+            mediaUrlCache.set(canonical, created.url);
+        }
+
+        return created;
+    };
+
+    const resolveFeaturedMedia = async (
+        featuredMediaId: number | undefined,
+    ): Promise<{ id: string; url?: string } | undefined> => {
+        if (!featuredMediaId) return undefined;
+
+        const existing = await findExistingMedia({ wpId: featuredMediaId });
+        if (existing) {
+            mediaReused++;
+            return existing;
+        }
+
+        const media = await fetchWPItem<WPMedia>(
+            wpBaseUrl,
+            `media/${featuredMediaId}`,
+        );
+        const sourceURL = media?.source_url;
+        if (!sourceURL) return undefined;
+
+        const alt = media?.alt_text || media?.title?.rendered || "Image";
+        return upsertMediaFromWP({ wpId: featuredMediaId, sourceURL, alt });
+    };
+
+    const replaceMediaURLsInHTML = async (html: string) => {
+        if (!replaceMediaURLs || !html) return html;
+
+        const imageUrls = extractImageURLs(html);
+        if (imageUrls.length === 0) return html;
+
+        let out = html;
+        for (const rawUrl of imageUrls) {
+            const { canonical: fullUrl, fetchURL } =
+                canonicalizeWPAssetURL(rawUrl);
+            // Skip if not a WP-hosted asset
+            if (!fullUrl.startsWith(wpBaseUrl)) continue;
+
+            try {
+                const mediaDoc = await upsertMediaFromWP({
+                    sourceURL: fetchURL,
+                    alt: "Image",
+                });
+                const newUrl = mediaDoc?.url;
+                if (!newUrl) continue;
+
+                // Replace both raw and canonical occurrences
+                out = out.split(rawUrl).join(newUrl);
+                out = out.split(fullUrl).join(newUrl);
+            } catch {
+                // Best-effort: ignore media replacement failures
+            }
+        }
+
+        return out;
+    };
+
     const findExistingByWpIdOrSlug = async (args: {
         collection: ImportCollectionSlug;
         wpId: number;
@@ -168,7 +443,11 @@ export async function POST(req: Request) {
     const summary: {
         pages?: { created: number; updated: number };
         posts?: { created: number; updated: number };
+        media?: { created: number; reused: number };
     } = {};
+
+    let mediaCreated = 0;
+    let mediaReused = 0;
 
     const errors: {
         collection: "pages" | "posts";
@@ -218,7 +497,10 @@ export async function POST(req: Request) {
             try {
                 const title = wp.title?.rendered || wp.slug;
                 const slug = wp.slug;
-                const contentHTML = wp.content?.rendered || "";
+                const featured = await resolveFeaturedMedia(wp.featured_media);
+                const contentHTMLRaw = wp.content?.rendered || "";
+                const contentHTML =
+                    await replaceMediaURLsInHTML(contentHTMLRaw);
 
                 if (!slug) continue;
 
@@ -244,6 +526,7 @@ export async function POST(req: Request) {
                             title,
                             slug,
                             contentHTML,
+                            featuredImage: featured?.id || undefined,
                         },
                     });
                     updated++;
@@ -255,10 +538,13 @@ export async function POST(req: Request) {
                             title,
                             slug,
                             contentHTML,
+                            featuredImage: featured?.id || undefined,
                         },
                     });
                     created++;
                 }
+
+                if (featured?.id) mediaReused++;
             } catch (e) {
                 errors.push({
                     collection: "pages",
@@ -284,7 +570,10 @@ export async function POST(req: Request) {
             try {
                 const title = wp.title?.rendered || wp.slug;
                 const slug = wp.slug;
-                const contentHTML = wp.content?.rendered || "";
+                const featured = await resolveFeaturedMedia(wp.featured_media);
+                const contentHTMLRaw = wp.content?.rendered || "";
+                const contentHTML =
+                    await replaceMediaURLsInHTML(contentHTMLRaw);
 
                 if (!slug) continue;
 
@@ -315,6 +604,7 @@ export async function POST(req: Request) {
                             slug,
                             contentHTML,
                             publishedAt,
+                            featuredImage: featured?.id || undefined,
                         },
                     });
                     updated++;
@@ -327,10 +617,13 @@ export async function POST(req: Request) {
                             slug,
                             contentHTML,
                             publishedAt,
+                            featuredImage: featured?.id || undefined,
                         },
                     });
                     created++;
                 }
+
+                if (featured?.id) mediaReused++;
             } catch (e) {
                 errors.push({
                     collection: "posts",
@@ -348,7 +641,13 @@ export async function POST(req: Request) {
         ok: errors.length === 0,
         dryRun,
         wpBaseUrl,
-        summary,
+        summary: {
+            ...summary,
+            media: {
+                created: mediaCreated,
+                reused: mediaReused,
+            },
+        },
         errors,
     });
 }

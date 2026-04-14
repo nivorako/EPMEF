@@ -14,6 +14,20 @@ export const Media: CollectionConfig = {
     },
     fields: [
         {
+            name: "wpId",
+            type: "number",
+            unique: true,
+            index: true,
+            required: false,
+        },
+        {
+            name: "wpSourceURL",
+            type: "text",
+            unique: true,
+            index: true,
+            required: false,
+        },
+        {
             name: "alt",
             type: "text",
             required: true,

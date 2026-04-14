@@ -56,6 +56,7 @@ export default async function PostBySlug(props: {
     const result = await payload.find({
         collection: "posts" as unknown as CollectionSlug,
         limit: 1,
+        depth: 1,
         where: {
             slug: {
                 equals: slug,
@@ -68,6 +69,10 @@ export default async function PostBySlug(props: {
               title?: string;
               contentHTML?: string;
               publishedAt?: string;
+              featuredImage?: {
+                  url?: string;
+                  alt?: string;
+              };
           }
         | undefined;
 
@@ -84,6 +89,13 @@ export default async function PostBySlug(props: {
                         {new Date(post.publishedAt).toLocaleDateString("fr-FR")}
                     </small>
                 </p>
+            ) : null}
+            {post.featuredImage?.url ? (
+                <img
+                    src={post.featuredImage.url}
+                    alt={post.featuredImage.alt || ""}
+                    style={{ maxWidth: "100%", height: "auto" }}
+                />
             ) : null}
             {post.contentHTML ? (
                 <div dangerouslySetInnerHTML={{ __html: post.contentHTML }} />
