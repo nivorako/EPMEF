@@ -9,6 +9,7 @@ import { Users } from "./collections/Users";
 import { Media } from "./collections/Media";
 import { Pages } from "./collections/Pages";
 import { Posts } from "./collections/Posts";
+import { SiteSettings } from "./globals/SiteSettings";
 
 // Payload CMS configuration.
 //
@@ -35,6 +36,8 @@ export default buildConfig({
 
     // --- Collections (content model) ---
     collections: [Users, Media, Pages, Posts],
+
+    globals: [SiteSettings],
 
     // --- Rich text ---
     editor: lexicalEditor(),

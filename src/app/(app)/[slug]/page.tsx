@@ -37,7 +37,7 @@ export async function generateMetadata(props: {
     const result = await payload.find({
         collection: "pages" as unknown as CollectionSlug,
         limit: 1,
-        depth: 0,
+        depth: 1,
         where: {
             slug: {
                 equals: normalizedSlug,
@@ -48,6 +48,14 @@ export async function generateMetadata(props: {
     const page = result.docs?.[0] as
         | {
               title?: string;
+              seo?: {
+                  title?: string;
+                  description?: string;
+                  noIndex?: boolean;
+                  ogImage?: {
+                      url?: string;
+                  };
+              };
           }
         | undefined;
 
@@ -58,8 +66,18 @@ export async function generateMetadata(props: {
         };
     }
 
+    const title = page.seo?.title || page.title || normalizedSlug;
+    const description = page.seo?.description;
+
     return {
-        title: page.title || normalizedSlug,
+        title,
+        description: description || undefined,
+        robots: page.seo?.noIndex ? { index: false, follow: false } : undefined,
+        openGraph: page.seo?.ogImage?.url
+            ? {
+                  images: [{ url: page.seo.ogImage.url }],
+              }
+            : undefined,
     };
 }
 

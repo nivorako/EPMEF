@@ -48,6 +48,35 @@ export const Posts: CollectionConfig = {
             required: false,
         },
         {
+            name: "seo",
+            type: "group",
+            required: false,
+            fields: [
+                {
+                    name: "title",
+                    type: "text",
+                    required: false,
+                },
+                {
+                    name: "description",
+                    type: "textarea",
+                    required: false,
+                },
+                {
+                    name: "ogImage",
+                    type: "relationship",
+                    relationTo: "media",
+                    required: false,
+                },
+                {
+                    name: "noIndex",
+                    type: "checkbox",
+                    required: false,
+                    defaultValue: false,
+                },
+            ],
+        },
+        {
             name: "contentHTML",
             type: "textarea",
             maxLength: 200000,
