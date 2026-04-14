@@ -73,85 +73,70 @@ export default async function RootLayout({
             <body>
                 <StyledComponentsRegistry>
                     <Providers>
-                        <header
-                            style={{
-                                padding: 16,
-                                borderBottom: "1px solid #eee",
-                            }}
-                        >
-                            <nav>
-                                {(siteSettings?.headerMenu || []).map(
-                                    (item, idx) => {
-                                        const href = resolveHref(item);
-                                        if (!href) return null;
-                                        const label = item.label || href;
-                                        const isExternal =
-                                            item.type === "external" &&
-                                            /^https?:\/\//i.test(href);
+                        <header className="site-header">
+                            <div className="container">
+                                <nav className="nav">
+                                    {(siteSettings?.headerMenu || []).map(
+                                        (item, idx) => {
+                                            const href = resolveHref(item);
+                                            if (!href) return null;
+                                            const label = item.label || href;
+                                            const isExternal =
+                                                item.type === "external" &&
+                                                /^https?:\/\//i.test(href);
 
-                                        return (
-                                            <span
-                                                key={idx}
-                                                style={{ marginRight: 12 }}
-                                            >
-                                                {isExternal ? (
-                                                    <a
-                                                        href={href}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                    >
-                                                        {label}
-                                                    </a>
-                                                ) : (
-                                                    <Link href={href}>
-                                                        {label}
-                                                    </Link>
-                                                )}
-                                            </span>
-                                        );
-                                    },
-                                )}
-                            </nav>
+                                            return isExternal ? (
+                                                <a
+                                                    key={idx}
+                                                    href={href}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    {label}
+                                                </a>
+                                            ) : (
+                                                <Link key={idx} href={href}>
+                                                    {label}
+                                                </Link>
+                                            );
+                                        },
+                                    )}
+                                </nav>
+                            </div>
                         </header>
 
                         {children}
 
-                        <footer
-                            style={{ padding: 16, borderTop: "1px solid #eee" }}
-                        >
-                            <nav>
-                                {(siteSettings?.footerMenu || []).map(
-                                    (item, idx) => {
-                                        const href = resolveHref(item);
-                                        if (!href) return null;
-                                        const label = item.label || href;
-                                        const isExternal =
-                                            item.type === "external" &&
-                                            /^https?:\/\//i.test(href);
+                        <footer className="site-footer">
+                            <div className="container">
+                                <nav className="nav">
+                                    {(siteSettings?.footerMenu || []).map(
+                                        (item, idx) => {
+                                            const href = resolveHref(item);
+                                            if (!href) return null;
+                                            const label = item.label || href;
+                                            const isExternal =
+                                                item.type === "external" &&
+                                                /^https?:\/\//i.test(href);
 
-                                        return (
-                                            <span
-                                                key={idx}
-                                                style={{ marginRight: 12 }}
-                                            >
-                                                {isExternal ? (
-                                                    <a
-                                                        href={href}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                    >
-                                                        {label}
-                                                    </a>
-                                                ) : (
-                                                    <Link href={href}>
-                                                        {label}
-                                                    </Link>
-                                                )}
-                                            </span>
-                                        );
-                                    },
-                                )}
-                            </nav>
+                                            return isExternal ? (
+                                                <a
+                                                    key={idx}
+                                                    href={href}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    {label}
+                                                </a>
+                                            ) : (
+                                                <Link key={idx} href={href}>
+                                                    {label}
+                                                </Link>
+                                            );
+                                        },
+                                    )}
+                                </nav>
+                            </div>
                         </footer>
                     </Providers>
                 </StyledComponentsRegistry>

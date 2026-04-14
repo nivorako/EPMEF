@@ -99,10 +99,10 @@ export default async function PostBySlug(props: {
     }
 
     return (
-        <main style={{ padding: 24 }}>
-            <h1>{post.title || slug}</h1>
+        <main className="container">
+            <h1 style={{ marginTop: 0 }}>{post.title || slug}</h1>
             {post.publishedAt ? (
-                <p>
+                <p className="muted" style={{ marginTop: 8 }}>
                     <small>
                         {new Date(post.publishedAt).toLocaleDateString("fr-FR")}
                     </small>
@@ -112,11 +112,14 @@ export default async function PostBySlug(props: {
                 <img
                     src={post.featuredImage.url}
                     alt={post.featuredImage.alt || ""}
-                    style={{ maxWidth: "100%", height: "auto" }}
+                    style={{ width: "100%", height: "auto" }}
                 />
             ) : null}
             {post.contentHTML ? (
-                <div dangerouslySetInnerHTML={{ __html: post.contentHTML }} />
+                <div
+                    className="prose"
+                    dangerouslySetInnerHTML={{ __html: post.contentHTML }}
+                />
             ) : null}
         </main>
     );

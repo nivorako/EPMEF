@@ -79,17 +79,20 @@ export default async function Home() {
 
     // --- Render ---
     return (
-        <main style={{ padding: 24 }}>
-            <h1>{page?.title || "Accueil"}</h1>
+        <main className="container">
+            <h1 style={{ marginTop: 0 }}>{page?.title || "Accueil"}</h1>
             {page?.featuredImage?.url ? (
                 <img
                     src={page.featuredImage.url}
                     alt={page.featuredImage.alt || ""}
-                    style={{ maxWidth: "100%", height: "auto" }}
+                    style={{ width: "100%", height: "auto" }}
                 />
             ) : null}
             {page?.contentHTML ? (
-                <div dangerouslySetInnerHTML={{ __html: page.contentHTML }} />
+                <div
+                    className="prose"
+                    dangerouslySetInnerHTML={{ __html: page.contentHTML }}
+                />
             ) : (
                 <p>
                     Crée une page dans Payload (collection Pages) avec le slug{" "}
