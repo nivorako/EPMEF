@@ -3,6 +3,14 @@ import { getPayload } from "payload";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
+// Single post page: `/actualites/<slug>`.
+//
+// Behavior:
+// - Fetches the post from Payload CMS (collection `posts`) by slug.
+// - `generateMetadata` populates `<title>`, description, robots & OG image from the SEO group.
+// - Returns 404 via `notFound()` when the slug does not match any document.
+// - Renders `contentHTML` via `dangerouslySetInnerHTML` (HTML is trusted from Payload).
+
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(props: {

@@ -3,6 +3,14 @@ import { getPayload } from "payload";
 import Link from "next/link";
 import type { Metadata } from "next";
 
+// News listing page: `/actualites`.
+//
+// Features:
+// - Server-side pagination via the `?page=` query parameter (9 posts per page).
+// - Posts are sorted by `publishedAt` descending (newest first).
+// - Each card shows: featured image, title, date and a plain-text excerpt
+//   derived from `contentHTML` (stripped of HTML tags, truncated to 160 chars).
+
 export const metadata: Metadata = {
     title: "Actualités",
 };

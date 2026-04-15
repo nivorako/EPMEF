@@ -1,5 +1,15 @@
 import type { GlobalConfig } from "payload";
 
+// Global: SiteSettings
+//
+// Single document edited through the Payload admin panel.
+// Provides shared configuration consumed by the layout (header/footer menus, site name, default SEO).
+//
+// Menu items support three link types:
+// - `page`     → relationship to a Pages document (resolved to `/<slug>`).
+// - `post`     → relationship to a Posts document (resolved to `/actualites/<slug>`).
+// - `external` → arbitrary URL entered as text.
+
 export const SiteSettings: GlobalConfig = {
     slug: "site-settings",
     access: {

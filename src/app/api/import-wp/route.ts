@@ -1,6 +1,30 @@
 import configPromise from "@payload-config";
 import { getPayload } from "payload";
 
+// ── WordPress → Payload CMS import route ──────────────────────────────────────
+//
+// POST /api/import-wp
+//
+// Bulk-imports pages, posts and media from a WordPress REST API into Payload.
+//
+// Authentication: requires `x-import-secret` header matching `IMPORT_SECRET` env var.
+//
+// Body options:
+//   wpBaseUrl        – root URL of the WordPress site (or `WP_BASE_URL` env).
+//   importPages      – import WP pages into Payload `pages` collection (default true).
+//   importPosts      – import WP posts into Payload `posts` collection (default true).
+//   importMedia      – download & upload images into Payload `media` (default true).
+//   replaceMediaURLs – rewrite WP image URLs inside contentHTML to local Payload URLs.
+//   dryRun           – simulate the import without writing to DB.
+//   debugSchema      – return Payload schema field names (diagnostic helper).
+//   onlySlug         – restrict import to a single slug.
+//   maxItems         – cap the number of items to process.
+//
+// The import is idempotent: documents are matched by `wpId` or `slug` and
+// updated if they already exist.
+
+// ── WordPress REST API types ──
+
 type WPPost = {
     id: number;
     slug: string;
@@ -18,6 +42,9 @@ type WPMedia = {
     title?: { rendered?: string };
 };
 
+// ── WP REST helpers ──
+
+/** Paginate through a WP REST collection endpoint and return all items. */
 async function fetchWPEndpoint<T>(
     baseUrl: string,
     endpoint: string,
@@ -56,6 +83,7 @@ async function fetchWPEndpoint<T>(
     return out;
 }
 
+/** Fetch a single item from the WP REST API (e.g. `media/123`). */
 async function fetchWPItem<T>(baseUrl: string, endpoint: string): Promise<T> {
     const url = new URL(`/wp-json/wp/v2/${endpoint}`, baseUrl);
     const res = await fetch(url.toString(), {
@@ -75,7 +103,10 @@ async function fetchWPItem<T>(baseUrl: string, endpoint: string): Promise<T> {
     return (await res.json()) as T;
 }
 
+// ── Main handler ──
+
 export async function POST(req: Request) {
+    // --- Auth check ---
     const importSecret = process.env.IMPORT_SECRET || "";
     if (!importSecret) {
         return Response.json(
@@ -89,6 +120,7 @@ export async function POST(req: Request) {
         return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // --- Parse request body ---
     const body = (await req.json().catch(() => ({}))) as {
         wpBaseUrl?: string;
         importPages?: boolean;
@@ -160,8 +192,12 @@ export async function POST(req: Request) {
 
     type ImportCollectionSlug = "pages" | "posts";
 
+    // Cache: canonical WP URL → local Payload URL (avoids duplicate downloads).
     const mediaUrlCache = new Map<string, string>();
 
+    // --- Media URL extraction & canonicalization helpers ---
+
+    /** Extract all image URLs from HTML (src, srcset, CSS url()). */
     const extractImageURLs = (html: string) => {
         const urls = new Set<string>();
         if (!html) return [];
@@ -195,6 +231,7 @@ export async function POST(req: Request) {
         return Array.from(urls);
     };
 
+    /** Normalize a WP media URL: strip query/hash, remove `-300x200` / `-scaled` suffixes. */
     const canonicalizeWPAssetURL = (input: string) => {
         try {
             const u = new URL(input, wpBaseUrl);
@@ -238,6 +275,9 @@ export async function POST(req: Request) {
         }
     };
 
+    // --- Media download / upsert pipeline ---
+
+    /** Download a remote image and return a Payload-compatible upload object. */
     const downloadAsPayloadUpload = async (sourceURL: string) => {
         const { fetchURL } = canonicalizeWPAssetURL(sourceURL);
         const res = await fetch(fetchURL, { cache: "no-store" });
@@ -263,6 +303,7 @@ export async function POST(req: Request) {
         };
     };
 
+    /** Look up an existing Payload media doc by wpId or wpSourceURL. */
     const findExistingMedia = async (args: {
         wpId?: number;
         wpSourceURL?: string;
@@ -304,6 +345,7 @@ export async function POST(req: Request) {
         return undefined;
     };
 
+    /** Create or reuse a Payload media doc for a given WP image URL. */
     const upsertMediaFromWP = async (args: {
         wpId?: number;
         sourceURL: string;
@@ -350,6 +392,7 @@ export async function POST(req: Request) {
         return created;
     };
 
+    /** Resolve a WP `featured_media` ID to a Payload media doc. */
     const resolveFeaturedMedia = async (
         featuredMediaId: number | undefined,
     ): Promise<{ id: string; url?: string } | undefined> => {
@@ -372,6 +415,7 @@ export async function POST(req: Request) {
         return upsertMediaFromWP({ wpId: featuredMediaId, sourceURL, alt });
     };
 
+    /** Rewrite WP-hosted image URLs inside HTML to their Payload equivalents. */
     const replaceMediaURLsInHTML = async (html: string) => {
         if (!replaceMediaURLs || !html) return html;
 
@@ -404,6 +448,9 @@ export async function POST(req: Request) {
         return out;
     };
 
+    // --- Document upsert helpers ---
+
+    /** Find an existing Payload doc by wpId first, then by slug. */
     const findExistingByWpIdOrSlug = async (args: {
         collection: ImportCollectionSlug;
         wpId: number;
@@ -439,6 +486,8 @@ export async function POST(req: Request) {
         const docBySlug = bySlug.docs?.[0];
         return docBySlug;
     };
+
+    // --- Import counters & error tracking ---
 
     const summary: {
         pages?: { created: number; updated: number };
@@ -485,6 +534,7 @@ export async function POST(req: Request) {
         }
     };
 
+    // ── Import: Pages ──
     if (importPages) {
         let wpPages = await fetchWPEndpoint<WPPost>(wpBaseUrl, "pages");
         if (onlySlug) wpPages = wpPages.filter((p) => p.slug === onlySlug);
@@ -558,6 +608,7 @@ export async function POST(req: Request) {
         summary.pages = { created, updated };
     }
 
+    // ── Import: Posts ──
     if (importPosts) {
         let wpPosts = await fetchWPEndpoint<WPPost>(wpBaseUrl, "posts");
         if (onlySlug) wpPosts = wpPosts.filter((p) => p.slug === onlySlug);
@@ -637,6 +688,7 @@ export async function POST(req: Request) {
         summary.posts = { created, updated };
     }
 
+    // ── Response ──
     return Response.json({
         ok: errors.length === 0,
         dryRun,
