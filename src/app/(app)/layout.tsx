@@ -3,19 +3,22 @@ import Link from "next/link";
 import configPromise from "@payload-config";
 import { getPayload } from "payload";
 import Providers from "./providers";
-import StyledComponentsRegistry from "./styled-components-registry";
+import { montserrat, inter } from "./fonts";
+import "./globals.css";
 
 // Root layout for the public application routes.
 //
 // Responsibilities:
 // - Define default SEO metadata for the app segment.
-// - Wrap the entire React tree with global providers (theme, global styles, etc.).
-// - Ensure styled-components styles are correctly collected during SSR.
+// - Wrap the entire React tree with global providers.
 
 export const metadata: Metadata = {
     title: "EPMEF",
     description:
         "EPMEF : informations, événements, enseignements, horaires et contact.",
+    icons: {
+        icon: "/icon.jpg",
+    },
 };
 
 export default async function RootLayout({
@@ -69,77 +72,75 @@ export default async function RootLayout({
     };
 
     return (
-        <html lang="fr">
+        <html lang="fr" className={`${montserrat.variable} ${inter.variable}`}>
             <body>
-                <StyledComponentsRegistry>
-                    <Providers>
-                        <header className="site-header">
-                            <div className="container">
-                                <nav className="nav">
-                                    {(siteSettings?.headerMenu || []).map(
-                                        (item, idx) => {
-                                            const href = resolveHref(item);
-                                            if (!href) return null;
-                                            const label = item.label || href;
-                                            const isExternal =
-                                                item.type === "external" &&
-                                                /^https?:\/\//i.test(href);
+                <Providers>
+                    <header className="site-header">
+                        <div className="container">
+                            <nav className="nav">
+                                {(siteSettings?.headerMenu || []).map(
+                                    (item, idx) => {
+                                        const href = resolveHref(item);
+                                        if (!href) return null;
+                                        const label = item.label || href;
+                                        const isExternal =
+                                            item.type === "external" &&
+                                            /^https?:\/\//i.test(href);
 
-                                            return isExternal ? (
-                                                <a
-                                                    key={idx}
-                                                    href={href}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    {label}
-                                                </a>
-                                            ) : (
-                                                <Link key={idx} href={href}>
-                                                    {label}
-                                                </Link>
-                                            );
-                                        },
-                                    )}
-                                </nav>
-                            </div>
-                        </header>
+                                        return isExternal ? (
+                                            <a
+                                                key={idx}
+                                                href={href}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                {label}
+                                            </a>
+                                        ) : (
+                                            <Link key={idx} href={href}>
+                                                {label}
+                                            </Link>
+                                        );
+                                    },
+                                )}
+                            </nav>
+                        </div>
+                    </header>
 
-                        {children}
+                    {children}
 
-                        <footer className="site-footer">
-                            <div className="container">
-                                <nav className="nav">
-                                    {(siteSettings?.footerMenu || []).map(
-                                        (item, idx) => {
-                                            const href = resolveHref(item);
-                                            if (!href) return null;
-                                            const label = item.label || href;
-                                            const isExternal =
-                                                item.type === "external" &&
-                                                /^https?:\/\//i.test(href);
+                    <footer className="site-footer">
+                        <div className="container">
+                            <nav className="nav">
+                                {(siteSettings?.footerMenu || []).map(
+                                    (item, idx) => {
+                                        const href = resolveHref(item);
+                                        if (!href) return null;
+                                        const label = item.label || href;
+                                        const isExternal =
+                                            item.type === "external" &&
+                                            /^https?:\/\//i.test(href);
 
-                                            return isExternal ? (
-                                                <a
-                                                    key={idx}
-                                                    href={href}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    {label}
-                                                </a>
-                                            ) : (
-                                                <Link key={idx} href={href}>
-                                                    {label}
-                                                </Link>
-                                            );
-                                        },
-                                    )}
-                                </nav>
-                            </div>
-                        </footer>
-                    </Providers>
-                </StyledComponentsRegistry>
+                                        return isExternal ? (
+                                            <a
+                                                key={idx}
+                                                href={href}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                {label}
+                                            </a>
+                                        ) : (
+                                            <Link key={idx} href={href}>
+                                                {label}
+                                            </Link>
+                                        );
+                                    },
+                                )}
+                            </nav>
+                        </div>
+                    </footer>
+                </Providers>
             </body>
         </html>
     );
