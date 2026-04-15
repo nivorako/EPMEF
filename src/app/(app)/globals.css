@@ -15,10 +15,8 @@
 
 /* ── Base resets ── */
 @layer base {
-    html,
-    body {
+    html {
         max-width: 100vw;
-        overflow-x: hidden;
     }
 
     body {
