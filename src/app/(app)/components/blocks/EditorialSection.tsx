@@ -1,17 +1,27 @@
 import Link from "next/link";
 import type { EditorialBlockData } from "./RenderBlocks";
+import { RichText } from "./RichText";
 
-// Editorial — Highlights the next upcoming event with date, description, and optional CTA.
+// Editorial — Highlights the next upcoming event pulled from the Events collection.
+// If eventType is "culte", a "Litorjia" CTA button is shown automatically.
 
 export function EditorialSection({ data }: { data: EditorialBlockData }) {
-    const dateLabel = data.eventDate
-        ? new Date(data.eventDate).toLocaleDateString("fr-FR", {
+    const event = data.event;
+    if (!event) return null;
+
+    const dateLabel = event.date
+        ? new Date(event.date).toLocaleDateString("fr-FR", {
               weekday: "long",
               day: "numeric",
               month: "long",
               year: "numeric",
           })
         : null;
+
+    const isCulte = event.eventType === "culte";
+    const showButton = isCulte || !!data.buttonLabelOverride;
+    const buttonLabel = data.buttonLabelOverride || (isCulte ? "Litorjia" : "");
+    const buttonLink = data.buttonLinkOverride || "#";
 
     return (
         <section className="py-16 sm:py-20">
@@ -22,23 +32,28 @@ export function EditorialSection({ data }: { data: EditorialBlockData }) {
                     </p>
                 )}
                 <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-                    {data.eventTitle}
+                    {event.title}
                 </h2>
                 {dateLabel && (
                     <p className="mt-3 text-lg text-muted">{dateLabel}</p>
                 )}
-                {data.eventDescription && (
-                    <p className="mt-4 text-foreground/80 leading-relaxed max-w-2xl mx-auto">
-                        {data.eventDescription}
+                {event.address && (
+                    <p className="mt-1 text-sm text-muted">
+                        📍 {event.address}
                     </p>
                 )}
-                {data.buttonLabel && data.buttonLink && (
+                {!!event.description && (
+                    <div className="mt-5 text-foreground/80 leading-relaxed max-w-2xl mx-auto prose">
+                        <RichText content={event.description} />
+                    </div>
+                )}
+                {showButton && buttonLabel && (
                     <div className="mt-8">
                         <Link
-                            href={data.buttonLink}
+                            href={buttonLink}
                             className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors"
                         >
-                            {data.buttonLabel}
+                            {buttonLabel}
                         </Link>
                     </div>
                 )}

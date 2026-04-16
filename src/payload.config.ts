@@ -9,6 +9,7 @@ import { Users } from "./collections/Users";
 import { Media } from "./collections/Media";
 import { Pages } from "./collections/Pages";
 import { Posts } from "./collections/Posts";
+import { Events } from "./collections/Events";
 import { SiteSettings } from "./globals/SiteSettings";
 
 // Payload CMS configuration.
@@ -35,7 +36,7 @@ export default buildConfig({
     },
 
     // --- Collections (content model) ---
-    collections: [Users, Media, Pages, Posts],
+    collections: [Users, Media, Pages, Posts, Events],
 
     globals: [SiteSettings],
 

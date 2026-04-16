@@ -24,14 +24,23 @@ export type HeroBlockData = {
     }>;
 };
 
+export type EventDoc = {
+    id: string;
+    title: string;
+    date: string;
+    description?: unknown; // Lexical richText JSON
+    image?: MediaDoc;
+    eventType: "culte" | "other";
+    address: string;
+    location?: { lat?: number; lng?: number };
+};
+
 export type EditorialBlockData = {
     blockType: "editorial";
     heading?: string;
-    eventTitle: string;
-    eventDate: string;
-    eventDescription?: string;
-    buttonLabel?: string;
-    buttonLink?: string;
+    event: EventDoc;
+    buttonLabelOverride?: string;
+    buttonLinkOverride?: string;
 };
 
 export type AboutBlockData = {
@@ -90,10 +99,7 @@ export function RenderBlocks({ blocks }: { blocks: BlockData[] }) {
                         return <MediaGallerySection key={idx} data={block} />;
                     case "communityStructure":
                         return (
-                            <CommunityStructureSection
-                                key={idx}
-                                data={block}
-                            />
+                            <CommunityStructureSection key={idx} data={block} />
                         );
                     default:
                         return null;

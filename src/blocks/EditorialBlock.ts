@@ -2,8 +2,12 @@ import type { Block } from "payload";
 
 // EditorialBlock — Highlights the next upcoming event.
 //
-// Displays event title, date, short description, and an optional CTA button
-// (e.g. "Rejoindre le culte").
+// References an event from the Events collection. Displays its title,
+// date, description, and address. A "Litorjia" button is automatically
+// shown when the event type is "culte".
+//
+// Optionally, editors can override the section heading and the CTA
+// button label/link.
 
 export const EditorialBlock: Block = {
     slug: "editorial",
@@ -17,42 +21,27 @@ export const EditorialBlock: Block = {
             defaultValue: "Prochain événement",
         },
         {
-            name: "eventTitle",
-            label: "Titre de l'événement",
-            type: "text",
+            name: "event",
+            label: "Événement",
+            type: "relationship",
+            relationTo: "events" as never,
             required: true,
         },
         {
-            name: "eventDate",
-            label: "Date de l'événement",
-            type: "date",
-            required: true,
-            admin: {
-                date: {
-                    displayFormat: "dd/MM/yyyy",
-                },
-            },
-        },
-        {
-            name: "eventDescription",
-            label: "Description courte",
-            type: "textarea",
-            required: false,
-        },
-        {
-            name: "buttonLabel",
-            label: "Texte du bouton",
-            type: "text",
-            required: false,
-        },
-        {
-            name: "buttonLink",
-            label: "Lien du bouton",
+            name: "buttonLabelOverride",
+            label: "Libellé du bouton (par défaut « Litorjia » si culte)",
             type: "text",
             required: false,
             admin: {
-                condition: (_, siblingData) => !!siblingData?.buttonLabel,
+                description:
+                    "Laissez vide pour le libellé par défaut. Le bouton ne s'affiche que si l'événement est un culte, sauf si vous remplissez ce champ.",
             },
+        },
+        {
+            name: "buttonLinkOverride",
+            label: "Lien du bouton (optionnel)",
+            type: "text",
+            required: false,
         },
     ],
 };

@@ -42,6 +42,24 @@ type WPMedia = {
     title?: { rendered?: string };
 };
 
+type TribeEvent = {
+    id: number;
+    title: string;
+    slug: string;
+    description?: string;
+    start_date?: string;
+    end_date?: string;
+    image?: { url?: string; id?: number };
+    categories?: Array<{ slug?: string; name?: string }>;
+    venue?: Array<{
+        venue?: string;
+        address?: string;
+        city?: string;
+        country?: string;
+    }>;
+    organizer?: Array<{ organizer?: string }>;
+};
+
 // ── WP REST helpers ──
 
 /** Paginate through a WP REST collection endpoint and return all items. */
@@ -103,6 +121,41 @@ async function fetchWPItem<T>(baseUrl: string, endpoint: string): Promise<T> {
     return (await res.json()) as T;
 }
 
+/** Fetch all events from The Events Calendar (Tribe) REST API, including past events. */
+async function fetchAllTribeEvents(baseUrl: string): Promise<TribeEvent[]> {
+    const out: TribeEvent[] = [];
+    let page = 1;
+
+    while (true) {
+        const url = new URL("/wp-json/tribe/events/v1/events", baseUrl);
+        url.searchParams.set("per_page", "50");
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("start_date", "2015-01-01");
+        url.searchParams.set("end_date", "2030-12-31");
+        url.searchParams.set("status", "publish");
+
+        const res = await fetch(url.toString(), {
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+        });
+
+        if (!res.ok) break;
+
+        const data = (await res.json()) as {
+            events?: TribeEvent[];
+            total_pages?: number;
+        };
+
+        if (data.events) out.push(...data.events);
+
+        const totalPages = data.total_pages || 1;
+        if (page >= totalPages) break;
+        page++;
+    }
+
+    return out;
+}
+
 // ── Main handler ──
 
 export async function POST(req: Request) {
@@ -125,6 +178,7 @@ export async function POST(req: Request) {
         wpBaseUrl?: string;
         importPages?: boolean;
         importPosts?: boolean;
+        importEvents?: boolean;
         importMedia?: boolean;
         replaceMediaURLs?: boolean;
         dryRun?: boolean;
@@ -143,6 +197,7 @@ export async function POST(req: Request) {
 
     const importPages = body.importPages ?? true;
     const importPosts = body.importPosts ?? true;
+    const importEvents = body.importEvents ?? false;
     const importMedia = body.importMedia ?? true;
     const replaceMediaURLs = body.replaceMediaURLs ?? true;
     const dryRun = body.dryRun ?? false;
@@ -190,7 +245,7 @@ export async function POST(req: Request) {
 
     const payloadUntyped = payload as unknown as UntypedPayload;
 
-    type ImportCollectionSlug = "pages" | "posts";
+    type ImportCollectionSlug = "pages" | "posts" | "events";
 
     // Cache: canonical WP URL → local Payload URL (avoids duplicate downloads).
     const mediaUrlCache = new Map<string, string>();
@@ -492,6 +547,7 @@ export async function POST(req: Request) {
     const summary: {
         pages?: { created: number; updated: number };
         posts?: { created: number; updated: number };
+        events?: { created: number; updated: number };
         media?: { created: number; reused: number };
     } = {};
 
@@ -499,7 +555,7 @@ export async function POST(req: Request) {
     let mediaReused = 0;
 
     const errors: {
-        collection: "pages" | "posts";
+        collection: "pages" | "posts" | "events";
         wpId: number;
         slug: string;
         message: string;
@@ -686,6 +742,115 @@ export async function POST(req: Request) {
         }
 
         summary.posts = { created, updated };
+    }
+
+    // ── Import: Events (The Events Calendar / Tribe) ──
+    if (importEvents) {
+        // Tribe API uses its own REST namespace and pagination.
+        const tribeEvents = await fetchAllTribeEvents(wpBaseUrl);
+        let filtered = tribeEvents;
+        if (onlySlug)
+            filtered = filtered.filter((e: TribeEvent) => e.slug === onlySlug);
+        if (maxItems > 0) filtered = filtered.slice(0, maxItems);
+
+        let created = 0;
+        let updated = 0;
+
+        for (const te of filtered) {
+            try {
+                const title = te.title || te.slug;
+                const slug = te.slug;
+                if (!slug) continue;
+
+                const date = te.start_date
+                    ? new Date(te.start_date).toISOString()
+                    : new Date().toISOString();
+
+                // Map Tribe categories to eventType.
+                const catSlugs = (te.categories || []).map(
+                    (c: { slug?: string }) => c.slug || "",
+                );
+                const isCulte = catSlugs.some(
+                    (s: string) =>
+                        s.includes("culte") ||
+                        s.includes("worship") ||
+                        s.includes("service"),
+                );
+                const eventType = isCulte ? "culte" : "other";
+
+                // Build address from venue if available.
+                const venueObj = te.venue?.[0];
+                const addressParts = [
+                    venueObj?.venue,
+                    venueObj?.address,
+                    venueObj?.city,
+                    venueObj?.country,
+                ].filter(Boolean);
+                const address = addressParts.join(", ") || "À définir";
+
+                // Resolve featured image.
+                let imageId: string | undefined;
+                if (te.image?.url) {
+                    const mediaDoc = await upsertMediaFromWP({
+                        wpId: te.image.id,
+                        sourceURL: te.image.url,
+                        alt: title,
+                    });
+                    imageId = mediaDoc?.id || undefined;
+                }
+
+                // Strip HTML from description for contentHTML storage.
+                const contentHTML = te.description || "";
+
+                // Find existing event by wpId or slug.
+                const existing = await findExistingByWpIdOrSlug({
+                    collection: "events" as ImportCollectionSlug,
+                    wpId: te.id,
+                    slug,
+                });
+
+                const eventData = {
+                    wpId: te.id,
+                    title,
+                    slug,
+                    date,
+                    eventType,
+                    address,
+                    contentHTML,
+                    image: imageId || undefined,
+                };
+
+                if (dryRun) {
+                    if (existing) updated++;
+                    else created++;
+                    continue;
+                }
+
+                if (existing) {
+                    await payloadUntyped.update({
+                        collection: "events",
+                        id: existing.id,
+                        data: eventData,
+                    });
+                    updated++;
+                } else {
+                    await payloadUntyped.create({
+                        collection: "events",
+                        data: eventData,
+                    });
+                    created++;
+                }
+            } catch (e) {
+                errors.push({
+                    collection: "events",
+                    wpId: te.id,
+                    slug: te.slug,
+                    message: formatError(e),
+                });
+            }
+        }
+
+        summary.events = { created, updated };
     }
 
     // ── Response ──
