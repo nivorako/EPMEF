@@ -12,36 +12,5 @@ import type { Block } from "payload";
 export const EditorialBlock: Block = {
     slug: "editorial",
     labels: { singular: "Éditorial / Événement", plural: "Éditoriaux" },
-    fields: [
-        {
-            name: "heading",
-            label: "Titre de section",
-            type: "text",
-            required: false,
-            defaultValue: "Prochain événement",
-        },
-        {
-            name: "event",
-            label: "Événement",
-            type: "relationship",
-            relationTo: "events" as never,
-            required: true,
-        },
-        {
-            name: "buttonLabelOverride",
-            label: "Libellé du bouton (par défaut « Litorjia » si culte)",
-            type: "text",
-            required: false,
-            admin: {
-                description:
-                    "Laissez vide pour le libellé par défaut. Le bouton ne s'affiche que si l'événement est un culte, sauf si vous remplissez ce champ.",
-            },
-        },
-        {
-            name: "buttonLinkOverride",
-            label: "Lien du bouton (optionnel)",
-            type: "text",
-            required: false,
-        },
-    ],
+    fields: [],
 };

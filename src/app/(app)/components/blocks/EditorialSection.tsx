@@ -1,13 +1,32 @@
 import Link from "next/link";
 import type { EditorialBlockData } from "./RenderBlocks";
+import type { EditorialEventData } from "./RenderBlocks";
 import { RichText } from "./RichText";
 
 // Editorial — Highlights the next upcoming event pulled from the Events collection.
 // If eventType is "culte", a "Litorjia" CTA button is shown automatically.
 
-export function EditorialSection({ data }: { data: EditorialBlockData }) {
-    const event = data.event;
-    if (!event) return null;
+export function EditorialSection({
+    data: _data,
+    event,
+}: {
+    data: EditorialBlockData;
+    event?: EditorialEventData;
+}) {
+    if (!event) {
+        return (
+            <section className="py-16 sm:py-20">
+                <div className="mx-auto max-w-4xl px-4 sm:px-6 text-center">
+                    <p className="text-sm font-semibold uppercase tracking-wider text-accent mb-3">
+                        Notre prochain culte
+                    </p>
+                    <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
+                        Prochain culte en préparation
+                    </h2>
+                </div>
+            </section>
+        );
+    }
 
     const dateLabel = event.date
         ? new Date(event.date).toLocaleDateString("fr-FR", {
@@ -18,19 +37,15 @@ export function EditorialSection({ data }: { data: EditorialBlockData }) {
           })
         : null;
 
-    const isCulte = event.eventType === "culte";
-    const showButton = isCulte || !!data.buttonLabelOverride;
-    const buttonLabel = data.buttonLabelOverride || (isCulte ? "Litorjia" : "");
-    const buttonLink = data.buttonLinkOverride || "#";
+    const buttonLabel = "Litorjia";
+    const buttonLink = event.slug ? `/events/${event.slug}/liturgie` : "#";
 
     return (
         <section className="py-16 sm:py-20">
             <div className="mx-auto max-w-4xl px-4 sm:px-6 text-center">
-                {data.heading && (
-                    <p className="text-sm font-semibold uppercase tracking-wider text-accent mb-3">
-                        {data.heading}
-                    </p>
-                )}
+                <p className="text-sm font-semibold uppercase tracking-wider text-accent mb-3">
+                    Notre prochain culte
+                </p>
                 <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
                     {event.title}
                 </h2>
@@ -47,7 +62,7 @@ export function EditorialSection({ data }: { data: EditorialBlockData }) {
                         <RichText content={event.description} />
                     </div>
                 )}
-                {showButton && buttonLabel && (
+                {buttonLabel && (
                     <div className="mt-8">
                         <Link
                             href={buttonLink}

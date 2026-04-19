@@ -1,7 +1,11 @@
 import configPromise from "@payload-config";
 import { getPayload } from "payload";
 import type { Metadata } from "next";
-import { RenderBlocks, type BlockData } from "./components/blocks/RenderBlocks";
+import {
+    RenderBlocks,
+    type BlockData,
+    type EditorialEventData,
+} from "./components/blocks/RenderBlocks";
 
 // Home page ("/") rendered from content stored in Payload CMS.
 //
@@ -38,6 +42,20 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Home() {
     const payload = await getPayload({ config: configPromise });
 
+    type MinimalFindArgs = {
+        collection: string;
+        limit?: number;
+        depth?: number;
+        sort?: string;
+        where?: unknown;
+    };
+
+    type MinimalPayload = {
+        find: (args: MinimalFindArgs) => Promise<{ docs?: unknown[] }>;
+    };
+
+    const payloadAny = payload as unknown as MinimalPayload;
+
     const pageResult = await payload.find({
         collection: "pages" as unknown as CollectionSlug,
         limit: 1,
@@ -55,11 +73,29 @@ export default async function Home() {
 
     const blocks = page?.layout || [];
 
+    const nowIso = new Date().toISOString();
+    const nextCulteResult = await payloadAny.find({
+        collection: "events",
+        limit: 1,
+        depth: 0,
+        sort: "date",
+        where: {
+            and: [
+                { eventType: { equals: "culte" } },
+                { date: { greater_than_equal: nowIso } },
+            ],
+        },
+    });
+
+    const nextCulte = nextCulteResult.docs?.[0] as unknown as
+        | EditorialEventData
+        | undefined;
+
     // --- Render blocks if present, otherwise fall back to legacy contentHTML ---
     return (
         <>
             {blocks.length > 0 ? (
-                <RenderBlocks blocks={blocks} />
+                <RenderBlocks blocks={blocks} editorialEvent={nextCulte} />
             ) : (
                 <section className="py-16 sm:py-20">
                     <div className="mx-auto max-w-3xl px-4 sm:px-6">

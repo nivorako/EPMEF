@@ -27,20 +27,26 @@ export type HeroBlockData = {
 export type EventDoc = {
     id: string;
     title: string;
+    slug?: string;
     date: string;
     description?: unknown; // Lexical richText JSON
     image?: MediaDoc;
     eventType: "culte" | "other";
+    liturgie?: unknown;
     address: string;
     location?: { lat?: number; lng?: number };
 };
 
 export type EditorialBlockData = {
     blockType: "editorial";
-    heading?: string;
-    event: EventDoc;
-    buttonLabelOverride?: string;
-    buttonLinkOverride?: string;
+};
+
+export type EditorialEventData = {
+    title: string;
+    slug?: string;
+    date: string;
+    description?: unknown;
+    address?: string;
 };
 
 export type AboutBlockData = {
@@ -82,7 +88,13 @@ export type BlockData =
 
 // Central block renderer — maps each block type to its component.
 
-export function RenderBlocks({ blocks }: { blocks: BlockData[] }) {
+export function RenderBlocks({
+    blocks,
+    editorialEvent,
+}: {
+    blocks: BlockData[];
+    editorialEvent?: EditorialEventData;
+}) {
     if (!blocks || blocks.length === 0) return null;
 
     return (
@@ -92,7 +104,13 @@ export function RenderBlocks({ blocks }: { blocks: BlockData[] }) {
                     case "hero":
                         return <HeroSection key={idx} data={block} />;
                     case "editorial":
-                        return <EditorialSection key={idx} data={block} />;
+                        return (
+                            <EditorialSection
+                                key={idx}
+                                data={block}
+                                event={editorialEvent}
+                            />
+                        );
                     case "about":
                         return <AboutSection key={idx} data={block} />;
                     case "mediaGallery":

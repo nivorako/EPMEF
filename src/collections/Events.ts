@@ -1,5 +1,10 @@
 import type { CollectionConfig } from "payload";
 
+import { LiturgieSectionBlock } from "../blocks/LiturgieSectionBlock";
+import { LiturgieChantBlock } from "../blocks/LiturgieChantBlock";
+import { LiturgiePriereBlock } from "../blocks/LiturgiePriereBlock";
+import { LiturgieCitationBlock } from "../blocks/LiturgieCitationBlock";
+
 // Collection: Events
 //
 // Stores upcoming and past events for the association.
@@ -84,6 +89,22 @@ export const Events: CollectionConfig = {
             options: [
                 { label: "Culte", value: "culte" },
                 { label: "Autre", value: "other" },
+            ],
+        },
+        {
+            name: "liturgie",
+            label: "Liturgie (programme du culte)",
+            type: "blocks",
+            required: false,
+            admin: {
+                condition: (_, siblingData) =>
+                    siblingData?.eventType === "culte",
+            },
+            blocks: [
+                LiturgieSectionBlock,
+                LiturgieChantBlock,
+                LiturgiePriereBlock,
+                LiturgieCitationBlock,
             ],
         },
         {
